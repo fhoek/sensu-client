@@ -47,31 +47,11 @@ namespace sensu_client
             
         }
 
-        //private static void StartHost(IContainer container)
-        //{
-        //    var host = HostFactory.New(x =>
-        //        {
-        //            x.Service<ISensuClient>(s =>
-        //                {
-        //                    s.ConstructUsing(name => container.GetInstance<ISensuClient>());
-        //                    s.WhenStarted(sc => sc.Start());
-        //                    s.WhenStopped(sc => sc.Stop());
-        //                });
-        //            x.SetStartTimeout(TimeSpan.FromSeconds(40));
-        //            x.SetStopTimeout(TimeSpan.FromSeconds(40));
-        //            x.RunAsLocalSystem();
-        //            x.SetDisplayName(ServiceName);
-        //            x.SetDescription("Sensu client for running checks and metrics for Sensu");
-        //            x.SetServiceName(ServiceName);
-        //        });
-
-        //    host.Run();
-        //}
-
         static void CurrentDomainUnhandledException(object sender, UnhandledExceptionEventArgs e)
         {
             _log.Error("Global Exception handler called with exectpion: {0}", e.ExceptionObject);
         }
+
         static void RunInteractive(ServiceBase[] servicesToRun)
         {
             Console.WriteLine("Services running in interactive mode.");
