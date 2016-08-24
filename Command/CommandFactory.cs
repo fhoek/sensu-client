@@ -210,7 +210,7 @@ namespace sensu_client.Command
 
         private static string RubyExePath()
         {
-            var defaultSensuClientPath = @"c:\opt\sensu\embedded\bin";
+            const string defaultSensuClientPath = @"c:\opt\sensu\embedded\bin";
             var rubyPath = Path.Combine(defaultSensuClientPath, "ruby.exe");
             if (File.Exists(rubyPath))
             {

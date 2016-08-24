@@ -10,7 +10,7 @@ namespace sensu_client_test
         [Test]
         public void current_version_should_be_1_0()
         {
-            CoreAssembly.Version.Major.ToString().ShouldBe("1");
+            CoreAssembly.Version.Major.ToString().ShouldBe("0");
         }
 
         [Test]

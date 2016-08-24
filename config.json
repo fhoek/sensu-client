@@ -1,14 +1,9 @@
 ﻿{
-    "rabbitmq": {
-	 "ssl": {
-    	 "private_key_file": "C:\\sensu-client\\files\\client_keycert.p12",
-    	 "cert_chain_file": "/etc/sensu/ssl/client_cert.pem",
-		 "cert_pass_phrase": "DemoPass",
-    },
-    "host": "10.8.16.67",
-    "port": 5671,
-    "vhost": "sensu",
+  "rabbitmq": {
+    "host": "sensu-1.trancon.nl",
+    "port": 80,
+    "vhost": "/sensu",
     "user": "sensu",
-    "password": "vagrant"
+    "password": "JcWJUDke"
   }
 }

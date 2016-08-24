@@ -105,12 +105,13 @@ namespace sensu_client.Helpers
             if (!command.Contains(":::"))
                 return command;
 
+#if FRANK
             if (!command.Contains("|"))
             {
                 errors = ErroTextDefaultDividerMissing;
                 return command;
             }
-            
+#endif   
             var commandRegexp = new Regex(":::(.*?):::", RegexOptions.Compiled);
 
             command = commandRegexp.Replace(command, match => MatchCommandArguments(client, match, tempErrors));
@@ -127,11 +128,13 @@ namespace sensu_client.Helpers
             var argumentValue = "";
             var commandArgument = match.Value.Replace(":::", "").Split(('|'));
 
-            var matchedOrDefault = FindClientAttribute(client, commandArgument[0].Split('.').ToList(), commandArgument[1]);
+            var matchedOrDefault = commandArgument.Length == 2 
+                ? FindClientAttribute(client, commandArgument[0].Split('.').ToList(), commandArgument[1])
+                : FindClientAttribute(client, commandArgument[0].Split('.').ToList(), "");
+            argumentValue += matchedOrDefault;
             
-            if (CommandArgumentHasValue(commandArgument)){tempErrors.Add(commandArgument[0]);}
-            
-            if (CommandArgumentIsNotNull(commandArgument)){argumentValue += matchedOrDefault;}
+            //if (CommandArgumentHasValue(commandArgument)){ tempErrors.Add(commandArgument[0]); }
+            //if (CommandArgumentIsNotNull(commandArgument)){ argumentValue += matchedOrDefault; }
             
             return argumentValue;
         }
@@ -202,9 +205,12 @@ namespace sensu_client.Helpers
         public static List<JObject> GetStandAloneChecks(JObject obj)
         {
             var  standAloneChecks = new List<JObject>();
+            if (obj == null)
+                return standAloneChecks;
 
             try
             {
+                
                 standAloneChecks = obj.Values<JToken>().Values<JObject>()
                      .Where(n => n["standalone"].Value<bool>()).
                      Select(n => JObject.FromObject(new { name = ((JProperty)n.Parent).Name, command = n["command"], interval = n["interval"] })).ToList();

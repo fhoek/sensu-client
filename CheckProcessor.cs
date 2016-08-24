@@ -169,7 +169,7 @@ namespace sensu_client
             var payload = new JObject();
             payload["check"] = check;
             payload["client"] = _sensuClientConfigurationReader.SensuClientConfig.Client.Name;
-            if (_sensuClientConfigurationReader.SensuClientConfig.Client.MailTo.Count > 0)
+            if (_sensuClientConfigurationReader.SensuClientConfig.Client.MailTo != null && _sensuClientConfigurationReader.SensuClientConfig.Client.MailTo.Count > 0)
                 payload["check"]["mail_to"] = string.Join(",", _sensuClientConfigurationReader.SensuClientConfig.Client.MailTo);
             payload["check"]["executed"] = SensuClientHelper.CreateTimeStamp();
             payload["check"]["issued"] = payload["check"]["executed"];
@@ -245,9 +245,9 @@ namespace sensu_client
                                                         }, check["command"].ToString());
 
                 Log.Debug("About to run command: " + checkName);
-                Task<JObject> executingTask = ExecuteCheck(check, commandToExcecute);
+                var executingTask = ExecuteCheck(check, commandToExcecute);
                 checksInProgress.SetTask(checkName, executingTask);
-                executingTask.ContinueWith(ReportCheckResultAfterCompletion).ContinueWith(CheckCompleted);
+                executingTask.ContinueWith<JObject>(ReportCheckResultAfterCompletion).ContinueWith(CheckCompleted);
             } catch (Exception e)
             {
                 Log.Error(e, "Error preparing check {0}", checkName);
