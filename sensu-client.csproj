@@ -129,6 +129,7 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
       <SubType>Designer</SubType>
     </Content>
+    <None Include="ClassDiagram1.cd" />
     <None Include="conf.d\client.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>

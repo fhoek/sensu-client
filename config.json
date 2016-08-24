@@ -1,9 +1,0 @@
-﻿{
-  "rabbitmq": {
-    "host": "sensu-1.trancon.nl",
-    "port": 80,
-    "vhost": "/sensu",
-    "user": "sensu",
-    "password": "JcWJUDke"
-  }
-}
