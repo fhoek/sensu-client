@@ -1,8 +1,20 @@
 ﻿{
   "client": {
-    "name": "demo-computer",
-    "address": "10.8.16.8",
-    "subscriptions": ["windows","windowschecks"],
-	"safemode": false,
+    "name": "test-windows-msi-client",
+    "address": "pc007.trancon.local",
+    "subscriptions": [
+		"windows",
+		"windowschecks", 
+		"devmachine",
+		"powershell_ruby_tests"
+	],
+	"plugins": "C:\\opt\\sensu-plugins",
+	"nodeinfo" : {
+        "os" : "Windows 10 Enterprise",
+        "location" : "trancon",
+        "description" : "Test Machine of Dennis van Bohemen",
+        "user" : ".\\Administrator",
+        "password" : "<via mremote>"
+    }
   }
 }

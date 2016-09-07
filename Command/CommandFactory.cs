@@ -65,6 +65,7 @@ namespace sensu_client.Command
         public virtual CommandResult Execute()
         {
             var result = new CommandResult();
+            
             var processstartinfo = new ProcessStartInfo()
             {
                 FileName = FileName,
@@ -237,7 +238,7 @@ namespace sensu_client.Command
         {
             int lastSlash = _unparsedCommand.LastIndexOf('/');
             var rubyArgument = (lastSlash > -1) ? _unparsedCommand.Substring(lastSlash + 1) : _unparsedCommand;
-            return String.Format("{0}\\{1}", _commandConfiguration.Plugins, rubyArgument);
+            return String.Format(@"-C {0}\ {1}", _commandConfiguration.Plugins, rubyArgument.Trim()); //TODO, maybe correct when using remote scripts
         }
     }
 
