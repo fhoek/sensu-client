@@ -4,5 +4,6 @@
     {
         public string Plugins { get; set; }
         public int? TimeOut { get; set; }
+        public bool Update { get; set; }
     }
 }

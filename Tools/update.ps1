@@ -8,9 +8,7 @@ param (
         [string]$checkFile,
         [string]$powershellProgram = "powershell.exe",
         [string]$powershellArguments = " -ExecutionPolicy Unrestricted -f ",
-        [string]$checkDownLoadURL = "http://agent.monitor.trancon.nl/", #TODO, only for testing, change to sensu-2 server URL. This URL is also used to review if Last-Modified and check wether the file can be downloaded.
-        [long]$lastUpdateRunInTicks = 0,
-        [int]$daysAfterNextVersionCheck = 0,
+        [string]$checkDownLoadURL = "http://agent.monitor.trancon.nl/", #TODO, only for testing, change to sensu-2 server URL. This URL is also used to review if Last-Modified and check wether the file can be downloaded
         [string]$ruby = "",
         [string]$powershell = "",
         [string]$http = "",
@@ -66,9 +64,9 @@ Function Check-File-Version($FpluginsPath, $checkFile, $checkDownLoadURL, $daysA
             $Status = $_.Exception.Response.StatusCode
             throw [System.Net.WebException] "  Error dowloading $checkFile for the first time, Status code: $Status - $msg"
         }
-    } elseif ($ticksAfterNextCheck -le $timeInTicksLastModified) { #DOES NOT WORK, NEEDS TIME LAST EXECUTED------------------------------------------------------------------------------------------------------------------------------------------
+    } else {
         try {
-            
+            #FOR TESTING
             Write-Host $timeInTicksLastModified 
             Write-Host $ticksAfterNextCheck
             Write-Host ($ticksAfterNextCheck -le $timeInTicksLastModified)

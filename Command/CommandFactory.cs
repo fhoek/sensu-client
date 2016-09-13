@@ -24,6 +24,7 @@ namespace sensu_client.Command
         public static Command Create(CommandConfiguration commandConfiguration, string command)
         {
             var command_lower = command.ToLower();
+            if (commandConfiguration.Update == true) return new UpdateCommand(commandConfiguration, command);
             if (command_lower.StartsWith(PerformanceCounterCommand.PREFIX)) return new PerformanceCounterCommand(commandConfiguration, command);
             if (command_lower.StartsWith(HTTPCommand.PREFIX)) return new HTTPCommand(commandConfiguration, command);
             if (command_lower.Contains(".ps1")) return new PowerShellCommand(commandConfiguration, command);
@@ -45,7 +46,7 @@ namespace sensu_client.Command
             _commandConfiguration = commandConfiguration;
             _unparsedCommand = unparsedCommand;
         }
-        
+
         public abstract string FileName { get; protected internal set; }
 
         public virtual string Arguments
@@ -65,7 +66,7 @@ namespace sensu_client.Command
         public virtual CommandResult Execute()
         {
             var result = new CommandResult();
-            
+
             var processstartinfo = new ProcessStartInfo()
             {
                 FileName = FileName,
@@ -135,7 +136,8 @@ namespace sensu_client.Command
         private string _arguments;
         const string PowershellOptions = "-NoProfile -NonInteractive -NoLogo -ExecutionPolicy Bypass ";
 
-        public PowerShellCommand(CommandConfiguration commandConfiguration, string unparsedCommand) : base(commandConfiguration, unparsedCommand)
+        public PowerShellCommand(CommandConfiguration commandConfiguration, string unparsedCommand)
+            : base(commandConfiguration, unparsedCommand)
         {
         }
 
@@ -238,7 +240,7 @@ namespace sensu_client.Command
         {
             int lastSlash = _unparsedCommand.LastIndexOf('/');
             var rubyArgument = (lastSlash > -1) ? _unparsedCommand.Substring(lastSlash + 1) : _unparsedCommand;
-            return String.Format(@"-C {0}\ {1}", _commandConfiguration.Plugins, rubyArgument.Trim()); //TODO, maybe correct when using remote scripts
+            return String.Format(@"-C {0}\ {1}", _commandConfiguration.Plugins, rubyArgument.Trim());
         }
     }
 
@@ -247,7 +249,8 @@ namespace sensu_client.Command
         protected string _filename;
         protected string _arguments;
 
-        public ShellCommand(CommandConfiguration commandConfiguration, string unparsedCommand) : base(commandConfiguration, unparsedCommand)
+        public ShellCommand(CommandConfiguration commandConfiguration, string unparsedCommand)
+            : base(commandConfiguration, unparsedCommand)
         {
             var cmd = unparsedCommand.Split(new char[] { ' ' }, 2);
             _filename = cmd[0];
@@ -258,10 +261,10 @@ namespace sensu_client.Command
         public override string FileName
         {
             protected internal set { _filename = value; }
-       
+
             get
             {
-                return _filename;                
+                return _filename;
             }
         }
 
@@ -277,11 +280,12 @@ namespace sensu_client.Command
         public static string PREFIX = "!http> ";
         private Dictionary<string, string> parameters = new Dictionary<string, string>();
 
-        public HTTPCommand(CommandConfiguration commandConfiguration, string unparsedCommand) : base(commandConfiguration, unparsedCommand)
+        public HTTPCommand(CommandConfiguration commandConfiguration, string unparsedCommand)
+            : base(commandConfiguration, unparsedCommand)
         {
             ParseArguments();
         }
-        
+
         public override string FileName
         {
             // I'm afraid this method is not required in this Command
@@ -326,7 +330,8 @@ namespace sensu_client.Command
             result.Status = 2;
             result.Output = "No checks were run";
 
-            try {
+            try
+            {
                 var url = getParam("url", null);
                 var timeout = Int64.Parse(getParam("timeout", "10000"));
                 var uri = new Uri(url);
@@ -353,19 +358,21 @@ namespace sensu_client.Command
                                     unixTimestamp
                                 );
                     result.Status = 0;
-                } else
+                }
+                else
                 {
                     result.Output = String.Format("# Error accessing to {0} (code: {1}): {2}", url, response.StatusCode, response.StatusDescription);
                     result.Status = 1;
                 }
-                
-            } catch (Exception e)
+
+            }
+            catch (Exception e)
             {
                 Log.Error(e, "There was an error accessing to an HTTP check");
                 result.Output = e.Message;
                 result.Status = 2;
             }
-            
+
             return result;
         }
     }
@@ -376,10 +383,11 @@ namespace sensu_client.Command
         private static Dictionary<string, List<PerformanceCounter>> counters = new Dictionary<string, List<PerformanceCounter>>();
         private static PerformanceCounterRegEx DefaultPerfCounterRegEx = new PerformanceCounterRegEx();
 
-        public PerformanceCounterCommand(CommandConfiguration commandConfiguration, string unparsedCommand) : base(commandConfiguration, unparsedCommand)
+        public PerformanceCounterCommand(CommandConfiguration commandConfiguration, string unparsedCommand)
+            : base(commandConfiguration, unparsedCommand)
         {
         }
-        
+
         public override string FileName
         {
             // I'm afraid this method is not required in this Command
@@ -584,7 +592,7 @@ namespace sensu_client.Command
         }
     }
 
-    
+
     public class PerformanceCounterRegEx
     {
         Regex regex = new Regex(
@@ -615,5 +623,122 @@ namespace sensu_client.Command
         public string Category { get; set; }
         public string Counter { get; set; }
         public string Instance { get; set; }
+    }
+
+    public class UpdateCommand : Command
+    {
+        public static string PREFIX = "-update";
+        private const string PowershellOptions = "-NoProfile -NonInteractive -NoLogo -ExecutionPolicy Bypass ";
+        private string _fileName;
+        private string _updateScriptPath;
+        private string _arguments;
+        private string _checkFile;
+
+        public UpdateCommand(CommandConfiguration commandConfiguration, string unparsedCommand)
+            : base(commandConfiguration, unparsedCommand)
+        {
+        }
+
+        public override string FileName
+        {
+            get
+            {
+                if (!String.IsNullOrEmpty(_fileName)) return _fileName;
+
+                _fileName = GetPowerShellExePath();
+                return _fileName;
+            }
+            protected internal set { _fileName = value; }
+        }
+
+        public string CheckFile
+        {
+            get
+            {
+                if (!String.IsNullOrEmpty(_checkFile)) return _checkFile;
+                
+                return null;
+            }
+            protected internal set { _checkFile = value; }
+        }
+
+        public string UpdateScriptPath
+        {
+            get
+            {
+                if (!String.IsNullOrEmpty(_updateScriptPath)) return _updateScriptPath;
+
+                _updateScriptPath = GetUpdateScriptPath();
+                return _updateScriptPath;
+            }
+            protected internal set { _updateScriptPath = value; }
+        }
+
+        private static string GetPowerShellExePath()
+        {
+            var systemRoot = Environment.ExpandEnvironmentVariables("%systemroot%").ToLower();
+            if (File.Exists(string.Format("{0}\\sysnative\\WindowsPowershell\\v1.0\\powershell.exe", systemRoot)))
+            {
+                return string.Format("{0}\\sysnative\\WindowsPowershell\\v1.0\\powershell.exe", systemRoot);
+            }
+            if (File.Exists(string.Format("{0}\\system32\\WindowsPowershell\\v1.0\\powershell.exe", systemRoot)))
+            {
+                return string.Format("{0}\\system32\\WindowsPowershell\\v1.0\\powershell.exe", systemRoot);
+            }
+            return "powershell.exe";
+        }
+
+        private static string GetUpdateScriptPath()
+        {
+            var applicationPath = AppDomain.CurrentDomain.BaseDirectory + "\\Solution Items\\Tools\\update.ps1";
+            if (File.Exists(applicationPath))
+            {
+                return applicationPath;
+            }
+            return @".\update.ps1";
+        }
+
+        public override string Arguments
+        {
+            get
+            {
+                if (!String.IsNullOrEmpty(_arguments)) return _arguments;
+
+                _arguments = ParseArguments();
+
+                return _arguments;
+            }
+            protected internal set { _arguments = value; }
+        }
+
+        protected override string ParseArguments()
+        {
+            int lastSlash = _unparsedCommand.LastIndexOf('/');
+            var argument = (lastSlash > -1) ? _unparsedCommand.Substring(lastSlash + 1) : _unparsedCommand;
+
+            int lastIndexCheckFile = argument.IndexOf(".rb");
+            if (lastIndexCheckFile > -1)
+            {
+                _checkFile = argument.Substring(0, lastIndexCheckFile + 3);
+                _checkFile.Trim();
+                argument = argument.Substring(lastIndexCheckFile + 3);
+            }
+            else
+            {
+                lastIndexCheckFile = argument.IndexOf(".ps1");
+                if (lastIndexCheckFile > -1)
+                {
+                    _checkFile = argument.Substring(0, lastIndexCheckFile + 4);
+                    argument = argument.Substring(lastIndexCheckFile + 4);
+                }
+                else
+                {
+                    _checkFile = null;
+                    return null;
+                }
+            }
+            return String.Format("{0} -FILE {1}\\{2}", PowershellOptions, _commandConfiguration.Plugins, argument); //TODO,add -checkFile "ddedede" and other arguments
+        }
+
     }
 }

@@ -130,7 +130,9 @@ namespace sensu_client
                 {
                     check = _sensuClientConfigurationReader.MergeCheckWithLocalCheck(check);
                     if (!ShouldRunInSafeMode(check))
-                        ExecuteCheckCommand(check);
+                    {
+                        ExecuteCheckCommand(check, ShouldExecuteUpdateChecks(check));
+                    }
                 }
                 else
                 {
@@ -163,6 +165,14 @@ namespace sensu_client
             return true;
         }
 
+        private bool ShouldExecuteUpdateChecks(JObject check)
+        {
+            var executeUpdates = _sensuClientConfigurationReader.SensuClientConfig.Client.UpdateChecks;
+            var executeUpdate = check["updateCheck"];
+            if (!executeUpdates || executeUpdate == null || executeUpdate.ToString() == "false") return false;
+
+            return true;
+        }
 
         public void PublishCheckResult(JObject check)
         {
@@ -206,7 +216,7 @@ namespace sensu_client
             }
         }
 
-        public void ExecuteCheckCommand(JObject check)
+        public void ExecuteCheckCommand(JObject check, bool withUpdateCheck)
         {
             Log.Debug("Attempting to execute check command {0}", JsonConvert.SerializeObject(check, SerializerSettings));
             if (check["name"] == null)
@@ -237,12 +247,29 @@ namespace sensu_client
                 if (check["timeout"] != null)
                     timeout = SensuClientHelper.TryParseNullable(check["timeout"].ToString());
 
+                var updateCheckCorrectTime = false;
+                if (withUpdateCheck)
+                {
+                    updateCheckCorrectTime = SensuClientHelper.CheckUpdateScriptTime();
+
+                    if (updateCheckCorrectTime)
+                    {
+                        var updateCommand = CommandFactory.Create(
+                            new CommandConfiguration()
+                            {
+                                Plugins = _sensuClientConfigurationReader.SensuClientConfig.Client.Plugins,
+                                Update = updateCheckCorrectTime
+                            }, check["command"].ToString());
+                    }
+                }
+
                 var commandToExcecute = CommandFactory.Create(
                                                         new CommandConfiguration()
                                                         {
                                                             Plugins = _sensuClientConfigurationReader.SensuClientConfig.Client.Plugins,
                                                             TimeOut = timeout
                                                         }, check["command"].ToString());
+
 
                 Log.Debug("About to run command: " + checkName);
                 var executingTask = ExecuteCheck(check, commandToExcecute);

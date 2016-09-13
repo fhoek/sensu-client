@@ -14,6 +14,7 @@ namespace sensu_client.Configuration
     {
         private string _plugins = @"c:\";
         private bool _send_metric_with_check = false;
+        private bool _update_checks = true;
 
         [JsonProperty("name")]
         public string Name { get; set; }
@@ -29,6 +30,13 @@ namespace sensu_client.Configuration
             get { return _plugins; }
             set { _plugins = value; }
         }
+        [JsonProperty("updateChecks")]
+        public bool UpdateChecks
+        {
+            get { return _update_checks; }
+            set { _update_checks = value; }
+        }
+        
         [JsonProperty("send_metric_with_check")]
         public bool SendMetricWithCheck
         {
@@ -59,6 +67,8 @@ namespace sensu_client.Configuration
 
     public class Check : ICheck
     {
+        private bool _update_check = true;
+
         [JsonProperty("name")]
         public string Name { get; set; }
         [JsonProperty("issued")]
@@ -85,6 +95,12 @@ namespace sensu_client.Configuration
         public bool Flapping { get; set; }
         [JsonProperty("standalone")]
         public bool Standalone { get; set; }
+        [JsonProperty("updateCheck")]
+        public bool UpdateCheck 
+        {
+            get { return _update_check; }
+            set { _update_check = value; } 
+        } 
     }
 
     public interface ICheck

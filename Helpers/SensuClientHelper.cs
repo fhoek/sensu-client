@@ -17,10 +17,22 @@ namespace sensu_client.Helpers
     {
         public const string ErroTextDefaultValueMissing = "Default missing:";
         public const string ErroTextDefaultDividerMissing = "Default divider missing";
+        public const int DaysAfterNextScriptCheck = 20;
         private static readonly Logger Log = LogManager.GetCurrentClassLogger();
+        private static DateTime datetime;
+
         public static long CreateTimeStamp()
         {
             return Convert.ToInt64(Math.Round((DateTime.UtcNow - new DateTime(1970, 1, 1, 0, 0, 0)).TotalSeconds, MidpointRounding.AwayFromZero));
+        }
+
+        public static DateTime GetDateTimeInstance()
+        {
+            if (datetime == null) 
+            {
+                datetime = DateTime.Now;
+            }
+            return datetime;            
         }
 
         public static int? TryParseNullable(string val)
@@ -225,6 +237,16 @@ namespace sensu_client.Helpers
         public static string CreateQueueName()
         {
             return String.Format("{0}-{1}-{2}", GetFQDN(), CoreAssembly.Version, CreateTimeStamp());
+        }
+
+        public static bool CheckUpdateScriptTime() 
+        {
+            DateTime dtFirstInstance = GetDateTimeInstance();
+            DateTime dtNow = DateTime.Now;
+            TimeSpan diff = dtNow - dtFirstInstance;
+            if (diff.Days >= DaysAfterNextScriptCheck)
+                return true;
+            return false;
         }
     }
 }
