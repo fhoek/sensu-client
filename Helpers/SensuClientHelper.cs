@@ -17,7 +17,8 @@ namespace sensu_client.Helpers
     {
         public const string ErroTextDefaultValueMissing = "Default missing:";
         public const string ErroTextDefaultDividerMissing = "Default divider missing";
-        public const int DaysAfterNextScriptCheck = 20;
+        public const int DaysAfterNextScriptCheck = 0; //TODO, change
+        private static IDictionary<String, DateTime> UpdateDates = new Dictionary<String, DateTime>();
         private static readonly Logger Log = LogManager.GetCurrentClassLogger();
         private static DateTime datetime;
 
@@ -26,12 +27,15 @@ namespace sensu_client.Helpers
             return Convert.ToInt64(Math.Round((DateTime.UtcNow - new DateTime(1970, 1, 1, 0, 0, 0)).TotalSeconds, MidpointRounding.AwayFromZero));
         }
 
-        public static DateTime GetDateTimeInstance()
+        private static DateTime GetDateTimeInstance(string checkName)
         {
-            if (datetime == null) 
+            if (UpdateDates.TryGetValue(checkName, out datetime))
             {
-                datetime = DateTime.Now;
+                return datetime;
             }
+
+            datetime = DateTime.Now;
+            UpdateDates.Add(checkName, datetime);
             return datetime;            
         }
 
@@ -239,9 +243,9 @@ namespace sensu_client.Helpers
             return String.Format("{0}-{1}-{2}", GetFQDN(), CoreAssembly.Version, CreateTimeStamp());
         }
 
-        public static bool CheckUpdateScriptTime() 
+        public static bool CheckUpdateScriptTime(string checkName) 
         {
-            DateTime dtFirstInstance = GetDateTimeInstance();
+            DateTime dtFirstInstance = GetDateTimeInstance(checkName);
             DateTime dtNow = DateTime.Now;
             TimeSpan diff = dtNow - dtFirstInstance;
             if (diff.Days >= DaysAfterNextScriptCheck)

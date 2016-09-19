@@ -131,7 +131,7 @@ namespace sensu_client
                     check = _sensuClientConfigurationReader.MergeCheckWithLocalCheck(check);
                     if (!ShouldRunInSafeMode(check))
                     {
-                        ExecuteCheckCommand(check, ShouldExecuteUpdateChecks(check));
+                       ExecuteCheckCommand(check, ShouldExecuteUpdateChecks(check));
                     }
                 }
                 else
@@ -169,9 +169,8 @@ namespace sensu_client
         {
             var executeUpdates = _sensuClientConfigurationReader.SensuClientConfig.Client.UpdateChecks;
             var executeUpdate = check["updateCheck"];
-            if (!executeUpdates || executeUpdate == null || executeUpdate.ToString() == "false") return false;
-
-            return true;
+            if (executeUpdate == null || executeUpdate.ToString() == "true" && executeUpdates) return true;
+            return false;
         }
 
         public void PublishCheckResult(JObject check)
@@ -250,16 +249,10 @@ namespace sensu_client
                 var updateCheckCorrectTime = false;
                 if (withUpdateCheck)
                 {
-                    updateCheckCorrectTime = SensuClientHelper.CheckUpdateScriptTime();
-
+                    updateCheckCorrectTime = SensuClientHelper.CheckUpdateScriptTime(checkName);
                     if (updateCheckCorrectTime)
                     {
-                        var updateCommand = CommandFactory.Create(
-                            new CommandConfiguration()
-                            {
-                                Plugins = _sensuClientConfigurationReader.SensuClientConfig.Client.Plugins,
-                                Update = updateCheckCorrectTime
-                            }, check["command"].ToString());
+                        ExecuteUpdateCommand(check);
                     }
                 }
 
@@ -270,7 +263,7 @@ namespace sensu_client
                                                             TimeOut = timeout
                                                         }, check["command"].ToString());
 
-
+                
                 Log.Debug("About to run command: " + checkName);
                 var executingTask = ExecuteCheck(check, commandToExcecute);
                 checksInProgress.SetTask(checkName, executingTask);
@@ -282,10 +275,44 @@ namespace sensu_client
             }
         }
 
+        public void ExecuteUpdateCommand(JObject check)
+        {
+            var checkName = check["name"].ToString();
+
+            try
+            {
+                var updateCommand = CommandFactory.Create(
+                    new CommandConfiguration()
+                    {
+                        Plugins = _sensuClientConfigurationReader.SensuClientConfig.Client.Plugins,
+                        Update = true
+                    }, check["command"].ToString());
+                Log.Debug("About to run update: " + checkName);
+                var executingTask = ExecuteUpdate(check, updateCommand);
+                checksInProgress.SetTask(checkName, executingTask);
+                executingTask.ContinueWith(UpdateCompleted);
+                
+            }
+            catch (Exception e)
+            {
+                Log.Error(e, "Error preparing update {0}", checkName);
+                checksInProgress.UnlockAnyway(checkName);
+            }
+            return updateResult;
+        }
+
+
         private void CheckCompleted(Task<JObject> executedTask)
         {
             var check = executedTask.Result;
             var name = check["name"].ToString();
+            checksInProgress.Unlock(name);
+        }
+
+        private void UpdateCompleted(Task<JObject> executedTask)
+        {
+            var update = executedTask.Result;
+            var name = update["name"].ToString();
             checksInProgress.Unlock(name);
         }
 
@@ -309,6 +336,24 @@ namespace sensu_client
                 }
                 stopwatch.Stop();
                 check["duration"] = ((float)stopwatch.ElapsedMilliseconds) / 1000;
+                return check;
+            });
+        }
+
+        private static Task<JObject> ExecuteUpdate(JObject check, Command.Command command)
+        {
+            return Task.Factory.StartNew(() =>
+            {
+                try
+                {
+                    var result = command.Execute();
+                }
+                catch (Exception e)
+                {
+                    Log.Warn(e, "Error running update {0}", check.ToString());
+                    check["output"] = "Error running update: " + e.StackTrace;
+                    check["status"] = 3;
+                }
                 return check;
             });
         }

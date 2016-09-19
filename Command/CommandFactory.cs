@@ -627,12 +627,16 @@ namespace sensu_client.Command
 
     public class UpdateCommand : Command
     {
-        public static string PREFIX = "-update";
+        private const string _defaultArgumentCheckfile = "-checkFile";
+        private bool _customArguments = false;
+        private const string _splitter = "&";
+        private const string _defaultArgumentPluginsPath = "-pluginsPath";
+        private const string _defaultArgumentCheckDownLoadURL = "-checkDownLoadURL";
         private const string PowershellOptions = "-NoProfile -NonInteractive -NoLogo -ExecutionPolicy Bypass ";
-        private string _fileName;
-        private string _updateScriptPath;
-        private string _arguments;
-        private string _checkFile;
+        public static string _fileName;
+        public static string _updateScriptPath;
+        public static string _arguments;
+        public static string _checkFile;
 
         public UpdateCommand(CommandConfiguration commandConfiguration, string unparsedCommand)
             : base(commandConfiguration, unparsedCommand)
@@ -667,7 +671,6 @@ namespace sensu_client.Command
             get
             {
                 if (!String.IsNullOrEmpty(_updateScriptPath)) return _updateScriptPath;
-
                 _updateScriptPath = GetUpdateScriptPath();
                 return _updateScriptPath;
             }
@@ -713,8 +716,21 @@ namespace sensu_client.Command
 
         protected override string ParseArguments()
         {
-            int lastSlash = _unparsedCommand.LastIndexOf('/');
-            var argument = (lastSlash > -1) ? _unparsedCommand.Substring(lastSlash + 1) : _unparsedCommand;
+            if (_unparsedCommand.Contains(_splitter))
+            {
+                _customArguments = true;
+                var indexOfSplitter = _unparsedCommand.IndexOf(_splitter);
+                var checkPart = _unparsedCommand.Substring(0, indexOfSplitter-1);
+                var updatePart = _unparsedCommand.Substring(indexOfSplitter+1);
+                int lastSlash = checkPart.LastIndexOf('/');
+            }
+            else
+            {
+                int lastSlash = _unparsedCommand.LastIndexOf('/');
+                var argument = (lastSlash > -1) ? _unparsedCommand.Substring(lastSlash + 1) : _unparsedCommand;
+            }
+            
+            //TODO, KEEP USING CUSTOM PARAMTERS OR NOT?
 
             int lastIndexCheckFile = argument.IndexOf(".rb");
             if (lastIndexCheckFile > -1)
@@ -723,22 +739,28 @@ namespace sensu_client.Command
                 _checkFile.Trim();
                 argument = argument.Substring(lastIndexCheckFile + 3);
             }
+            lastIndexCheckFile = argument.IndexOf(".ps1");
+            if (lastIndexCheckFile > -1)
+            {
+                _checkFile = argument.Substring(0, lastIndexCheckFile + 4);
+                argument = argument.Substring(lastIndexCheckFile + 4);
+            }
             else
             {
-                lastIndexCheckFile = argument.IndexOf(".ps1");
-                if (lastIndexCheckFile > -1)
-                {
-                    _checkFile = argument.Substring(0, lastIndexCheckFile + 4);
-                    argument = argument.Substring(lastIndexCheckFile + 4);
-                }
-                else
-                {
-                    _checkFile = null;
-                    return null;
-                }
+                _checkFile = null;
+                return null;
             }
-            return String.Format("{0} -FILE {1}\\{2}", PowershellOptions, _commandConfiguration.Plugins, argument); //TODO,add -checkFile "ddedede" and other arguments
-        }
+            return String.Format("{0} -FILE {1} {2} '{3}' {4} '{5}'", PowershellOptions, UpdateScriptPath, 
+                _defaultArgumentCheckfile, _checkFile, _defaultArgumentPluginsPath, _commandConfiguration.Plugins); //TODO,add -checkFile "ddedede" and other arguments
 
+            if(argument.Contains(_defaultArgumentCheckDownLoadURL))
+            {
+                var downloadURLIndex = (argument.LastIndexOf(_defaultArgumentCheckDownLoadURL) +2);
+                var downloadURL = argument.Substring(downloadURLIndex, )
+                return String.Format("{0} -FILE {1} {2} '{3}' {4} '{5}'", PowershellOptions, UpdateScriptPath, 
+                _defaultArgumentCheckfile, _checkFile, _defaultArgumentPluginsPath, _commandConfiguration.Plugins,
+                _defaultArgumentCheckDownLoadURL, ); //TODO,add -checkFile "ddedede" and other arguments
+            }
+        }
     }
 }
