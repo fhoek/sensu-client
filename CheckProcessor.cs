@@ -252,10 +252,10 @@ namespace sensu_client
                     updateCheckCorrectTime = SensuClientHelper.CheckUpdateScriptTime(checkName);
                     if (updateCheckCorrectTime)
                     {
-                        ExecuteUpdateCommand(check);
+                       var updateTask = ExecuteUpdateCommand(check);
                     }
                 }
-
+                /*
                 var commandToExcecute = CommandFactory.Create(
                                                         new CommandConfiguration()
                                                         {
@@ -267,7 +267,7 @@ namespace sensu_client
                 Log.Debug("About to run command: " + checkName);
                 var executingTask = ExecuteCheck(check, commandToExcecute);
                 checksInProgress.SetTask(checkName, executingTask);
-                executingTask.ContinueWith<JObject>(ReportCheckResultAfterCompletion).ContinueWith(CheckCompleted);
+                executingTask.ContinueWith<JObject>(ReportCheckResultAfterCompletion).ContinueWith(CheckCompleted);*/
             } catch (Exception e)
             {
                 Log.Error(e, "Error preparing check {0}", checkName);
@@ -275,7 +275,7 @@ namespace sensu_client
             }
         }
 
-        public void ExecuteUpdateCommand(JObject check)
+        public Task<JObject> ExecuteUpdateCommand(JObject check)
         {
             var checkName = check["name"].ToString();
 
@@ -291,16 +291,15 @@ namespace sensu_client
                 var executingTask = ExecuteUpdate(check, updateCommand);
                 checksInProgress.SetTask(checkName, executingTask);
                 executingTask.ContinueWith(UpdateCompleted);
-                
+                return executingTask;    
             }
             catch (Exception e)
             {
                 Log.Error(e, "Error preparing update {0}", checkName);
                 checksInProgress.UnlockAnyway(checkName);
             }
-            return updateResult;
+            return null;
         }
-
 
         private void CheckCompleted(Task<JObject> executedTask)
         {
@@ -314,6 +313,7 @@ namespace sensu_client
             var update = executedTask.Result;
             var name = update["name"].ToString();
             checksInProgress.Unlock(name);
+            Log.Debug("Update of " + name + " updated and result is : " + update);
         }
 
         private static Task<JObject> ExecuteCheck(JObject check, Command.Command command)

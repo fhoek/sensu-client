@@ -40,7 +40,13 @@ Function Set-Script-Command($checkFile, $command) {
     }
     return $command
 }
-
+Function Check-last-slash($pluginsPath) {
+    
+    if ( -not($pluginsPath.LastIndexOf("\")) -eq ($pluginsPath.Length-1)) {
+        return $pluginsPath + "\"
+    }
+    return $pluginsPath
+}
 #check if the file exists, when it doesn't exists it should be downloaded
 Function Check-File-Version($FpluginsPath, $checkFile, $checkDownLoadURL, $daysAfterNextCheck) {
     [long]$nSPerSecond = 10000000
@@ -51,10 +57,11 @@ Function Check-File-Version($FpluginsPath, $checkFile, $checkDownLoadURL, $daysA
     $timeInTicksLastModified = $ticksToday - ($localFileLastModified.Ticks)
     Write-Host $ticksToday
     Write-Host $localFileLastModified.Ticks
-
+    $pluginsPath = Check-last-slash $pluginsPath
+    Write-Host $pluginsPath
     if( -not(Test-Path "$FpluginsPath$checkFile")) {
         if( -not(Test-Path "$FpluginsPath")) {
-            throw [System.IO.IOException] " Plugin path does not exist"
+            throw [System.IO.IOException] " Plugin path: $pluginsPath$checkFile does not exist"
         }
 
         try {

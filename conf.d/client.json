@@ -3,7 +3,7 @@
     "name": "test-windows-msi-client",
     "address": "pc007.trancon.local",
     "subscriptions": [
-		"powershell_ruby_tests"
+		"checks_windows_powershell_test"
 	],
 	"plugins": "C:\\opt\\sensu-plugins",
 	"nodeinfo" : {

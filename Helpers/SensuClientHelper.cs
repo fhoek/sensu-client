@@ -39,6 +39,16 @@ namespace sensu_client.Helpers
             return datetime;            
         }
 
+        private static void RemoveDateTimeinstance(string checkName)
+        {
+            UpdateDates.Remove(checkName);
+        }
+
+        private static void AdjustDateTime(string checkName)
+        {
+            UpdateDates[checkName] = DateTime.Now;
+        }
+
         public static int? TryParseNullable(string val)
         {
             int outValue;
@@ -248,8 +258,12 @@ namespace sensu_client.Helpers
             DateTime dtFirstInstance = GetDateTimeInstance(checkName);
             DateTime dtNow = DateTime.Now;
             TimeSpan diff = dtNow - dtFirstInstance;
+
             if (diff.Days >= DaysAfterNextScriptCheck)
+            {
+                AdjustDateTime(checkName);
                 return true;
+            }
             return false;
         }
     }
