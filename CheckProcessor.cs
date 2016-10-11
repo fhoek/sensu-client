@@ -11,6 +11,7 @@ using sensu_client.Connection;
 using RabbitMQ.Client.Framing.v0_9_1;
 using sensu_client.Helpers;
 using System.Diagnostics;
+using sensu_client.Update;
 
 namespace sensu_client
 {
@@ -173,6 +174,11 @@ namespace sensu_client
             return false;
         }
 
+
+
+
+
+
         public void PublishCheckResult(JObject check)
         {
             var payload = new JObject();
@@ -246,28 +252,31 @@ namespace sensu_client
                 if (check["timeout"] != null)
                     timeout = SensuClientHelper.TryParseNullable(check["timeout"].ToString());
 
-                var updateCheckCorrectTime = false;
-                if (withUpdateCheck)
+                CommandConfiguration configuration = new CommandConfiguration();
+                configuration.Plugins = _sensuClientConfigurationReader.SensuClientConfig.Client.Plugins;
+                configuration.TimeOut = timeout;
+
+                var commandToExcecute = CommandFactory.Create(configuration
+                                                        , check["command"].ToString());
+                
+                if (commandToExcecute is Command.RemoteCommand)
                 {
-                    updateCheckCorrectTime = SensuClientHelper.CheckUpdateScriptTime(checkName);
-                    if (updateCheckCorrectTime)
+                    try
                     {
-                       var updateTask = ExecuteUpdateCommand(check);
+                        Log.Debug("About to run update: " + checkName);
+                        UpdateScheduler scheduler = new UpdateScheduler();
+                        scheduler.ExecuteUpdateCheck(configuration, check);
+                    }
+                    catch (Exception e)
+                    {
+                        Log.Warn(e, "Error preparing update {0}", checkName);
                     }
                 }
-                /*
-                var commandToExcecute = CommandFactory.Create(
-                                                        new CommandConfiguration()
-                                                        {
-                                                            Plugins = _sensuClientConfigurationReader.SensuClientConfig.Client.Plugins,
-                                                            TimeOut = timeout
-                                                        }, check["command"].ToString());
 
-                
                 Log.Debug("About to run command: " + checkName);
                 var executingTask = ExecuteCheck(check, commandToExcecute);
                 checksInProgress.SetTask(checkName, executingTask);
-                executingTask.ContinueWith<JObject>(ReportCheckResultAfterCompletion).ContinueWith(CheckCompleted);*/
+                executingTask.ContinueWith<JObject>(ReportCheckResultAfterCompletion).ContinueWith(CheckCompleted);
             } catch (Exception e)
             {
                 Log.Error(e, "Error preparing check {0}", checkName);
@@ -275,45 +284,13 @@ namespace sensu_client
             }
         }
 
-        public Task<JObject> ExecuteUpdateCommand(JObject check)
-        {
-            var checkName = check["name"].ToString();
-
-            try
-            {
-                var updateCommand = CommandFactory.Create(
-                    new CommandConfiguration()
-                    {
-                        Plugins = _sensuClientConfigurationReader.SensuClientConfig.Client.Plugins,
-                        Update = true
-                    }, check["command"].ToString());
-                Log.Debug("About to run update: " + checkName);
-                var executingTask = ExecuteUpdate(check, updateCommand);
-                checksInProgress.SetTask(checkName, executingTask);
-                executingTask.ContinueWith(UpdateCompleted);
-                return executingTask;    
-            }
-            catch (Exception e)
-            {
-                Log.Error(e, "Error preparing update {0}", checkName);
-                checksInProgress.UnlockAnyway(checkName);
-            }
-            return null;
-        }
+   
 
         private void CheckCompleted(Task<JObject> executedTask)
         {
             var check = executedTask.Result;
             var name = check["name"].ToString();
             checksInProgress.Unlock(name);
-        }
-
-        private void UpdateCompleted(Task<JObject> executedTask)
-        {
-            var update = executedTask.Result;
-            var name = update["name"].ToString();
-            checksInProgress.Unlock(name);
-            Log.Debug("Update of " + name + " updated and result is : " + update);
         }
 
         private static Task<JObject> ExecuteCheck(JObject check, Command.Command command)
@@ -339,25 +316,7 @@ namespace sensu_client
                 return check;
             });
         }
-
-        private static Task<JObject> ExecuteUpdate(JObject check, Command.Command command)
-        {
-            return Task.Factory.StartNew(() =>
-            {
-                try
-                {
-                    var result = command.Execute();
-                }
-                catch (Exception e)
-                {
-                    Log.Warn(e, "Error running update {0}", check.ToString());
-                    check["output"] = "Error running update: " + e.StackTrace;
-                    check["status"] = 3;
-                }
-                return check;
-            });
-        }
-
+        
         private JObject ReportCheckResultAfterCompletion(Task<JObject> executedTask)
         {
             var check = executedTask.Result;

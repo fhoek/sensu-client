@@ -140,6 +140,10 @@
     <Compile Include="TcpServer\TcpServer.cs" />
     <Compile Include="TcpServer\TcpServerConnection.cs" />
     <Compile Include="UdpReceiver\UdpReciever.cs" />
+    <Compile Include="Update\IUpdate.cs" />
+    <Compile Include="Update\UpdateFile.cs" />
+    <Compile Include="Update\UpdateDownloader.cs" />
+    <Compile Include="Update\UpdateScheduler.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="app.config" />

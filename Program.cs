@@ -9,7 +9,7 @@ namespace sensu_client
 {
     class Program
     {
-        public const string ServiceName = "Sensu-client";
+        public const string ServiceName = "Sensu-client (Trancon)";
         static Logger _log;
         static void Main()
         {

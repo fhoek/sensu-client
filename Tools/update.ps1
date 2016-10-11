@@ -13,7 +13,9 @@ param (
         [string]$powershell = "",
         [string]$http = "",
         [string]$arguments = "",
-        [string]$command = "" #Override the whole command
+        [string]$command = "", #Override the whole command
+        [string]$authUsername,
+        [string]$authPassword
         )
 
 Function Set-Drive-Path($drive, $path) {
@@ -26,58 +28,61 @@ Function Set-Drive-Path($drive, $path) {
 
 #define script type(ruby. powershell, etc.)
 Function Set-Script-Command($checkFile, $command) {
+    $fPluginsPath = Check-last-slash $pluginsPath
+    Write-Host $fPluginsPath 
     if ($checkFile -Match ".ps1") {
-        $command = "$powershellProgram $powershellArguments $pluginsPath$checkFile $arguments"
+        $command = "$powershellProgram $powershellArguments $fPluginsPath $checkFile $arguments"
     } elseif ($checkFile -Match ".rb") {
         if( -not(Test-Path "$FrubyPath")) {
             throw [System.IO.IOException] " Ruby path: $($FrubyPath) does not exist"
         }
         $rubyCheckFile = " $checkFile"
-        $command = "$FrubyPath $rubyArguments $FpluginsPath $rubyCheckFile $arguments"
+        $command = "$FrubyPath $rubyArguments $fPluginsPath $rubyCheckFile $arguments"
         Write-Host "command " + $command
     } elseif ($command.Length -ge 1 -and $checkFile.Length -le 0) {
         $command = $command
+    } else {
+    Write-Host "foutjee"
     }
     return $command
 }
-Function Check-last-slash($pluginsPath) {
-    
-    if ( -not($pluginsPath.LastIndexOf("\")) -eq ($pluginsPath.Length-1)) {
-        return $pluginsPath + "\"
+
+Function Check-last-slash($pluginsPathToCheck) {
+    $pluginsLength = $pluginsPathToCheck.Length - 1
+    if ( -not(($pluginsPathToCheck.LastIndexOf("\")) -eq ($pluginsLength))) {
+        return $pluginsPathToCheck + "\"
     }
-    return $pluginsPath
+    return $pluginsPathToCheck
 }
+
 #check if the file exists, when it doesn't exists it should be downloaded
-Function Check-File-Version($FpluginsPath, $checkFile, $checkDownLoadURL, $daysAfterNextCheck) {
+Function Check-File-Version($pluginsPathP, $checkFile, $checkDownLoadURL, $daysAfterNextCheck) {
+    $FpluginsPath = Check-last-slash $pluginsPathP
     [long]$nSPerSecond = 10000000
     [System.DateTime]$todayDt = [System.DateTime]::Now
     [long]$ticksAfterNextCheck = $daysAfterNextCheck * 60 * 60 * 24 * $nSPerSecond
-    $localFileLastModified = ([System.IO.FileInfo]"$pluginsPath$checkFile").LastWriteTime
+    $localFileLastModified = ([System.IO.FileInfo]"$FpluginsPath$checkFile").LastWriteTime
     $ticksToday = $todayDt.Ticks
     $timeInTicksLastModified = $ticksToday - ($localFileLastModified.Ticks)
     Write-Host $ticksToday
     Write-Host $localFileLastModified.Ticks
-    $pluginsPath = Check-last-slash $pluginsPath
-    Write-Host $pluginsPath
+    
     if( -not(Test-Path "$FpluginsPath$checkFile")) {
         if( -not(Test-Path "$FpluginsPath")) {
-            throw [System.IO.IOException] " Plugin path: $pluginsPath$checkFile does not exist"
+            throw [System.IO.IOException] " Plugin path: $FpluginsPath$checkFile does not exist"
         }
 
         try {
             $webRequest = New-Object System.net.WebClient
-            $webRequest.DownloadFile("$checkDownLoadURL$checkFile", "$FpluginsPath$checkFile")
+            $webRequest.DownloadFile("$checkDownLoadURL", "$FpluginsPath$checkFile")
         } catch [System.Net.WebException] {
             $Status = $_.Exception.Response.StatusCode
             throw [System.Net.WebException] "  Error dowloading $checkFile for the first time, Status code: $Status - $msg"
         }
     } else {
         try {
-            #FOR TESTING
-            Write-Host $timeInTicksLastModified 
-            Write-Host $ticksAfterNextCheck
-            Write-Host ($ticksAfterNextCheck -le $timeInTicksLastModified)
-            
+            Write-Host "check download url $checkDownLoadURL"
+
 		    #use HttpWebRequest to check modified since
 		    $webRequest = [System.Net.HttpWebRequest]::Create("$checkDownLoadURL");
 
@@ -87,7 +92,7 @@ Function Check-File-Version($FpluginsPath, $checkFile, $checkDownLoadURL, $daysA
 		    [System.Net.HttpWebResponse]$webResponse = $webRequest.GetResponse()
 
             #use HttpWebRequest again to download file when the head request didn't respond with a 304 response
-		    $webRequest = [System.Net.HttpWebRequest]::Create("$checkDownLoadURL$checkFile");
+		    $webRequest = [System.Net.HttpWebRequest]::Create("$checkDownLoadURL");
 		    $webRequest.Method = "GET"
 		    [System.Net.HttpWebResponse]$webResponse = $webRequest.GetResponse()
 
@@ -100,14 +105,27 @@ Function Check-File-Version($FpluginsPath, $checkFile, $checkDownLoadURL, $daysA
 		    #Check for a 304
 		    if ($_.Exception.Response.StatusCode -eq [System.Net.HttpStatusCode]::NotModified) {
                 Write-Host "Not modified, not downloaded...."
+                # TODO, move to only execution if downloading and add paramater to script so that the sensu-client can restart itself by this script when all check updates are done
+                # Restart-Sensu-Client #AFMAKEN POC
 		    } else {
 			    #Unexpected 
 			    $Status = $_.Exception.Response.StatusCode
 			    $msg = $_.Exception
-			    throw [System.Net.WebException] "  Error dowloading $checkFile when updating, Status code: $Status - $msg"
+			    throw [System.Net.WebException] "  Error dowloading from $checkDownloadURL, Status code: $Status - $msg"
 		    }
 	    }
      }
+}
+
+#functino restarts the Sensu Client to reload all check scripts 
+Function Restart-Sensu-Client() {
+try {
+    Restart-Service sensu-client -Force
+    Write-Host "sensu client restarted"
+    } catch [Exception] {
+        $msg = $_.Exception
+        throw [Exception] " Error restarting sensu client service, Message: $msg"
+    }
 }
 
 #check if the file exists, when it doesn't exists it should be downloaded. The check is checked with a custom command TODO--------------------------------------------------------------------------------
@@ -126,7 +144,6 @@ Function Main {
         $FpluginsPath = Set-Drive-Path $drive $pluginsPath
         $Fcommand = Set-Script-Command $checkFile $command
         Check-File-Version $FpluginsPath $checkFile $checkDownLoadURL $daysAfterNextVersionCheck
-        Run-Command $Fcommand
     }
 }
 

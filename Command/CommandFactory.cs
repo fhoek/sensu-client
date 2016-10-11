@@ -24,9 +24,10 @@ namespace sensu_client.Command
         public static Command Create(CommandConfiguration commandConfiguration, string command)
         {
             var command_lower = command.ToLower();
-            if (commandConfiguration.Update == true) return new UpdateCommand(commandConfiguration, command);
+            //if (commandConfiguration.Update == true) return new RemoteCommand(commandConfiguration, command);
             if (command_lower.StartsWith(PerformanceCounterCommand.PREFIX)) return new PerformanceCounterCommand(commandConfiguration, command);
             if (command_lower.StartsWith(HTTPCommand.PREFIX)) return new HTTPCommand(commandConfiguration, command);
+            if (command_lower.StartsWith(RemoteCommand.PREFIX)) return new RemoteCommand(commandConfiguration, command);
             if (command_lower.Contains(".ps1")) return new PowerShellCommand(commandConfiguration, command);
             if (command_lower.Contains(".rb")) return new RubyCommand(commandConfiguration, command);
 
@@ -71,7 +72,7 @@ namespace sensu_client.Command
             {
                 FileName = FileName,
                 Arguments = Arguments,
-                WindowStyle = ProcessWindowStyle.Hidden, //TODO, remove for testing
+                WindowStyle = ProcessWindowStyle.Hidden,
                 WorkingDirectory = _commandConfiguration.Plugins,
                 UseShellExecute = false,
                 RedirectStandardError = true,
@@ -102,6 +103,8 @@ namespace sensu_client.Command
                 var status = process.ExitCode;
                 result.Output = String.Format("{0}{1}", output, errors);
                 result.Status = status;
+
+                Log.Debug("Output when executing process: '{0}'", output);
                 if (!string.IsNullOrEmpty(errors))
                 {
                     if (_commandConfiguration.Update == true)
@@ -639,22 +642,24 @@ namespace sensu_client.Command
         public string Instance { get; set; }
     }
 
-    public class UpdateCommand : Command
+    public class RemoteCommand : Command
     {
         private const string _defaultArgumentCheckfile = "-checkFile";
         private bool _customArguments = false;
-        private const string _splitter = "&";
+        public static string PREFIX = "!runremoteps > ";
+        public static string PSEXTENSION = "ps1";
         private const string _defaultArgumentPluginsPath = "-pluginsPath";
         private const string _defaultArgumentCheckDownLoadURL = "-checkDownLoadURL";
+        private string _checkDownloadURL;
         private const string PowershellOptions = "-NoProfile -NonInteractive -NoLogo -ExecutionPolicy Bypass";
         public static string _fileName;
         public static string _updateScriptPath;
         public static string _arguments;
         public static string _checkFile;
-        public string argument;
+        public string arguments;
         public string updatePart;
 
-        public UpdateCommand(CommandConfiguration commandConfiguration, string unparsedCommand)
+        public RemoteCommand(CommandConfiguration commandConfiguration, string unparsedCommand)
             : base(commandConfiguration, unparsedCommand)
         {
         }
@@ -666,6 +671,7 @@ namespace sensu_client.Command
                 if (!String.IsNullOrEmpty(_fileName)) return _fileName;
 
                 _fileName = GetPowerShellExePath();
+
                 return _fileName;
             }
             protected internal set { _fileName = value; }
@@ -676,7 +682,7 @@ namespace sensu_client.Command
             get
             {
                 if (!String.IsNullOrEmpty(_checkFile)) return _checkFile;
-                
+                Log.Debug("_checkFile is not set, returning null");
                 return null;
             }
             protected internal set { _checkFile = value; }
@@ -711,13 +717,7 @@ namespace sensu_client.Command
         {
             //var applicationPath = AppDomain.CurrentDomain.BaseDirectory + "\\Solution Items\\Tools\\update.ps1";
             var applicationPath = AppDomain.CurrentDomain.BaseDirectory + "Tools\\update.ps1";
-
-            // Alternatief ophalen executable
-            System.Reflection.Assembly.GetEntryAssembly();
-
-             var appPath2 = Path.Combine(Path.GetDirectoryName(System.Reflection.Assembly.GetEntryAssembly().Location), @"Tools\update.ps1");
-
-
+            
             if (File.Exists(applicationPath))
             {
                 return applicationPath;
@@ -740,59 +740,40 @@ namespace sensu_client.Command
 
         protected override string ParseArguments()
         {
-            if (_unparsedCommand.Contains(_splitter))
-            {
-                _customArguments = true;
-                var indexOfSplitter = _unparsedCommand.IndexOf(_splitter);
-                argument = _unparsedCommand.Substring(0, indexOfSplitter-1);
-                updatePart = _unparsedCommand.Substring(indexOfSplitter+1);
-                int lastSlash = argument.LastIndexOf('/');
-            }
-            else
-            {
-                int lastSlash = _unparsedCommand.LastIndexOf('/');
-                argument = (lastSlash > -1) ? _unparsedCommand.Substring(lastSlash + 1) : _unparsedCommand;
-            }
+            var indexOfUrl = PREFIX.Length;
+            var lastIndexOfUrl = _unparsedCommand.LastIndexOf(PSEXTENSION);
+            int checkNameLastIndex = (lastIndexOfUrl - indexOfUrl) + PSEXTENSION.Length;
+            _checkDownloadURL = _unparsedCommand.Substring(indexOfUrl, checkNameLastIndex);
             
-            //TODO, KEEP USING CUSTOM PARAMTERS OR NOT?
+            //var indexOfPrefix = _unparsedCommand.IndexOf(PREFIX)
+            //arguments = _unparsedCommand.Substring(0, indexOfPrefix-1);
+            
+            int lastSlash = _unparsedCommand.LastIndexOf('/');
 
+            //updatePart = _unparsedCommand.Substring(indexOfPrefix+1);
+            
+                        
+            //TODO, KEEP USING CUSTOM PARAMTERS OR NOT?
+            /*
             int lastIndexCheckFile = argument.IndexOf(".rb");
             if (lastIndexCheckFile > -1)
             {
                 _checkFile = argument.Substring(0, lastIndexCheckFile + 3);
-                _checkFile.Trim();
+                _checkFile = _checkFile.Replace(" ", "");
                 argument = argument.Substring(lastIndexCheckFile + 3);
-            }
-            lastIndexCheckFile = argument.IndexOf(".ps1");
-            if (lastIndexCheckFile > -1)
+            }*/
+            
+            
+            if (lastSlash > -1)
             {
-                _checkFile = argument.Substring(0, lastIndexCheckFile + 4);
-                argument = argument.Substring(lastIndexCheckFile + 4);
+                var checkFileLength = (lastIndexOfUrl - lastSlash) + (PSEXTENSION.Length - 1);
+                _checkFile = _unparsedCommand.Substring(lastSlash + 1, checkFileLength);
+                arguments = _unparsedCommand.Substring((lastIndexOfUrl + 1) + PSEXTENSION.Length);
             }
 
-//            else
-  //          {
-    //            _checkFile = null;
-      //          return null;
-     //       }
-           
-            if((_customArguments) && argument.Contains(_defaultArgumentCheckDownLoadURL))
-            {
-                return updatePart;
+            Log.Debug("Path: " + String.Format("{0} -FILE {1}\\{2} {3}", PowershellOptions, _commandConfiguration.Plugins, _checkFile, arguments));
 
-                var downloadURLIndex = (argument.LastIndexOf(_defaultArgumentCheckDownLoadURL) +2);
-                var downloadURL = (downloadURLIndex > -1) ? argument.Substring(downloadURLIndex): argument;
-                return String.Format("{0} -FILE {1} {2} '{3}' {4} '{5}'", PowershellOptions, UpdateScriptPath, 
-                _defaultArgumentCheckfile, _checkFile, _defaultArgumentPluginsPath, _commandConfiguration.Plugins,
-                _defaultArgumentCheckDownLoadURL, downloadURL); //TODO, TEST
-
-                
-            }
-            Log.Debug("Path: " + String.Format("{0} {1} {2} {3} {4} {5}", PowershellOptions, UpdateScriptPath,
-                _defaultArgumentCheckfile, _checkFile, _defaultArgumentPluginsPath, _commandConfiguration.Plugins + @"\")); 
-
-                 return String.Format("{0} {1} {2} '{3}' {4} '{5}'", PowershellOptions, UpdateScriptPath, 
-                _defaultArgumentCheckfile, _checkFile, _defaultArgumentPluginsPath, _commandConfiguration.Plugins + @"\"); 
+            return String.Format("{0} -FILE {1}\\{2} {3}", PowershellOptions, _commandConfiguration.Plugins, _checkFile, arguments); 
             }
 
     }
