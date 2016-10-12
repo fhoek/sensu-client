@@ -25,9 +25,15 @@ namespace sensu_client.Update
             {
                 log.Debug("About to download update for: " + _updateFile.checkFilePath);
                 string downloadURL = check["command"].ToString().Replace(Command.RemoteCommand.PREFIX, "");
-                string finalDownloadURL = downloadURL.Remove(downloadURL.IndexOf(Command.RemoteCommand.PSEXTENSION) + (Command.RemoteCommand.PSEXTENSION.Length));
-                log.Debug("Preparing download on URL: " + finalDownloadURL);
-                HttpWebRequest Request = (HttpWebRequest)HttpWebRequest.Create(finalDownloadURL);
+
+                /*Remove arguments if present in the URL*/
+                if (downloadURL.Length > (downloadURL.IndexOf(Command.RemoteCommand.PSEXTENSION) + (Command.RemoteCommand.PSEXTENSION.Length)))
+                {
+                    downloadURL = downloadURL.Remove(downloadURL.IndexOf(Command.RemoteCommand.PSEXTENSION) + (Command.RemoteCommand.PSEXTENSION.Length));
+                }
+
+                log.Debug("Preparing download on URL: " + downloadURL);
+                HttpWebRequest Request = (HttpWebRequest)HttpWebRequest.Create(downloadURL);
                 HttpWebResponse Response = (HttpWebResponse)Request.GetResponse();
 
                 try

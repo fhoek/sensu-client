@@ -5,6 +5,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.IO;
+using System.Security.AccessControl;
+using System.Security.Principal;
 using sensu_client.Command;
 using sensu_client.Update;
 
@@ -54,7 +56,7 @@ namespace sensu_client.Update
         private bool CompareTimeForUpdate(UpdateFile file)
         {
             DateTime nextUpdateDate = file.FileTimestamp.AddDays(DaysNextUpdate);
-            if ((DateTime.Compare(nextUpdateDate, DayTimeToday)) < 0)
+            if ((DateTime.Compare(nextUpdateDate, DayTimeToday)) <= 0)
             {
                 return true;
             }
@@ -81,8 +83,15 @@ namespace sensu_client.Update
 
         public void WriteUpdateFile(UpdateFile file)
         {
-            StreamWriter writer = new StreamWriter(file.filepath);
-            writer.Write(file.TimeArgument + file.FileTimestamp);
+            DirectoryInfo dInfo = new DirectoryInfo(file.filepath);
+            DirectorySecurity dSec = dInfo.GetAccessControl();
+            dSec.AddAccessRule(new FileSystemAccessRule(new SecurityIdentifier(WellKnownSidType.WorldSid, null), FileSystemRights.FullControl,
+                InheritanceFlags.ObjectInherit | InheritanceFlags.ContainerInherit, PropagationFlags.NoPropagateInherit, AccessControlType.Allow));
+            dInfo.SetAccessControl(dSec);
+            using (StreamWriter writer = new StreamWriter(file.filepath))
+            {
+                writer.Write(file.FileTimestamp);
+            }
         }
 
         public void createUpdateFile(UpdateFile file)
@@ -94,8 +103,15 @@ namespace sensu_client.Update
             {
                 DateTime timeStamp = new DateTime(file.FileTimestamp.Ticks);
                 sw.Write(timeStamp);
+
+
+                DirectoryInfo dInfo = new DirectoryInfo(file.filepath);
+                DirectorySecurity dSec = dInfo.GetAccessControl();
+                dSec.AddAccessRule(new FileSystemAccessRule(new SecurityIdentifier(WellKnownSidType.WorldSid, null), FileSystemRights.FullControl, 
+                    InheritanceFlags.ObjectInherit | InheritanceFlags.ContainerInherit, PropagationFlags.NoPropagateInherit, AccessControlType.Allow));
+                dInfo.SetAccessControl(dSec);
                 File.SetAttributes(file.filepath, FileAttributes.Hidden);
-            }
+           }
         }
     }
 }

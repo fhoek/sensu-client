@@ -53,7 +53,10 @@ namespace sensu_client.Update
             this.checkname = command.Substring(index1);
             var index2 = this.checkname.IndexOf(Command.RemoteCommand.PSEXTENSION);
             index2 = index2 + (Command.RemoteCommand.PSEXTENSION.Length);
-            this.checkname = checkname.Remove(index2);
+            if (checkname.Length > index2)
+            {
+                this.checkname = checkname.Remove(index2);
+            }
             this.filename = "." + checkname;
             this.filepath = String.Format(@"{0}\{1}", pluginsPath, filename);
             this.checkFilePath = String.Format(@"{0}\{1}", pluginsPath, checkname);

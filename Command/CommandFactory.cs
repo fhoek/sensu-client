@@ -729,7 +729,7 @@ namespace sensu_client.Command
         {
             get
             {
-                if (!String.IsNullOrEmpty(_arguments)) return _arguments;
+                //if (!String.IsNullOrEmpty(_arguments)) return _arguments;
 
                 _arguments = ParseArguments();
 
@@ -744,31 +744,17 @@ namespace sensu_client.Command
             var lastIndexOfUrl = _unparsedCommand.LastIndexOf(PSEXTENSION);
             int checkNameLastIndex = (lastIndexOfUrl - indexOfUrl) + PSEXTENSION.Length;
             _checkDownloadURL = _unparsedCommand.Substring(indexOfUrl, checkNameLastIndex);
-            
-            //var indexOfPrefix = _unparsedCommand.IndexOf(PREFIX)
-            //arguments = _unparsedCommand.Substring(0, indexOfPrefix-1);
-            
+           
             int lastSlash = _unparsedCommand.LastIndexOf('/');
 
-            //updatePart = _unparsedCommand.Substring(indexOfPrefix+1);
-            
-                        
-            //TODO, KEEP USING CUSTOM PARAMTERS OR NOT?
-            /*
-            int lastIndexCheckFile = argument.IndexOf(".rb");
-            if (lastIndexCheckFile > -1)
-            {
-                _checkFile = argument.Substring(0, lastIndexCheckFile + 3);
-                _checkFile = _checkFile.Replace(" ", "");
-                argument = argument.Substring(lastIndexCheckFile + 3);
-            }*/
-            
-            
             if (lastSlash > -1)
             {
                 var checkFileLength = (lastIndexOfUrl - lastSlash) + (PSEXTENSION.Length - 1);
                 _checkFile = _unparsedCommand.Substring(lastSlash + 1, checkFileLength);
-                arguments = _unparsedCommand.Substring((lastIndexOfUrl + 1) + PSEXTENSION.Length);
+                if (_unparsedCommand.Length > (lastIndexOfUrl + 1) + PSEXTENSION.Length)
+                {
+                    arguments = _unparsedCommand.Substring((lastIndexOfUrl + 1) + PSEXTENSION.Length);
+                }
             }
 
             Log.Debug("Path: " + String.Format("{0} -FILE {1}\\{2} {3}", PowershellOptions, _commandConfiguration.Plugins, _checkFile, arguments));

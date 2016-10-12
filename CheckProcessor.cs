@@ -284,8 +284,6 @@ namespace sensu_client
             }
         }
 
-   
-
         private void CheckCompleted(Task<JObject> executedTask)
         {
             var check = executedTask.Result;
