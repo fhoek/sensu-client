@@ -16,14 +16,13 @@ namespace sensu_client.Update
         }
 
         private const string _timeArgument = "timestamp update = ";
+        private const string _fileExtension = "txt";
         public string filepath { get; set; }
         public string checkFilePath{ get; set; }
         public string filename{ get; set; }
         public string checkname { get; set; }
         public string command { get; set; }
         private DateTime _lastUpdateDatetime;
-
-     
 
         public DateTime FileTimestamp
         {
@@ -35,6 +34,14 @@ namespace sensu_client.Update
             set
             {
                 _lastUpdateDatetime = value;
+            }
+        }
+
+        public string FileExtension
+        {
+            get
+            {
+                return _fileExtension;
             }
         }
 
@@ -57,7 +64,8 @@ namespace sensu_client.Update
             {
                 this.checkname = checkname.Remove(index2);
             }
-            this.filename = "." + checkname;
+            this.filename = "." + (checkname.Remove(this.checkname.IndexOf(Command.RemoteCommand.PSEXTENSION)));
+            this.filename = this.filename + FileExtension;
             this.filepath = String.Format(@"{0}\{1}", pluginsPath, filename);
             this.checkFilePath = String.Format(@"{0}\{1}", pluginsPath, checkname);
             }
