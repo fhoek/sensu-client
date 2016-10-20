@@ -174,11 +174,6 @@ namespace sensu_client
             return false;
         }
 
-
-
-
-
-
         public void PublishCheckResult(JObject check)
         {
             var payload = new JObject();
@@ -343,6 +338,5 @@ namespace sensu_client
             check["handle"] = false;
             PublishCheckResult(check);
         }
-      
     }
 }

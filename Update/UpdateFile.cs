@@ -4,7 +4,6 @@ using System.Linq;
 using System.Text;
 using Newtonsoft.Json.Linq;
 using Newtonsoft.Json;
-using System.Linq;
 
 namespace sensu_client.Update
 {
@@ -68,6 +67,6 @@ namespace sensu_client.Update
             this.filename = this.filename + FileExtension;
             this.filepath = String.Format(@"{0}\{1}", pluginsPath, filename);
             this.checkFilePath = String.Format(@"{0}\{1}", pluginsPath, checkname);
-            }
+       }
     }
 }

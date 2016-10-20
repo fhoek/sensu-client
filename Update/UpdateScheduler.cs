@@ -12,6 +12,7 @@ using sensu_client.Update;
 
 namespace sensu_client.Update
 {
+    /*Class that will update and download RemoteCommand powershell scripts from a given URL*/
     class UpdateScheduler
     {
         protected CommandConfiguration _commandConfiguration { get; set; }
@@ -81,14 +82,12 @@ namespace sensu_client.Update
 
         public void DownloadUpdate(UpdateFile file, JObject check)
         {
-            
             UpdateDownloader UpdateDownloader = new UpdateDownloader(file);
             UpdateDownloader.downloadUpdate(check);
         }
 
         public UpdateFile ReadUpdateFile(UpdateFile file)
         {
-
             using (StreamReader reader = new StreamReader(file.filepath))
             {
                 string line = reader.ReadToEnd();

@@ -327,6 +327,7 @@ namespace sensu_client.Command
                 string key = aux[0].Trim();
                 string value = aux[1].Trim();
 
+                
                 parameters[key] = value;
             }
 
@@ -363,33 +364,51 @@ namespace sensu_client.Command
                 stopwatch.Start();
                 var request = (HttpWebRequest)WebRequest.Create(url);
                 request.Method = method;
-                var response = (HttpWebResponse)request.GetResponse();
-                stopwatch.Stop();
-
-                if (validStatus.Contains((int)response.StatusCode))
+                using (var response = (HttpWebResponse)request.GetResponse())
                 {
-                    var unixTimestamp = (Int32)(DateTime.UtcNow.Subtract(new DateTime(1970, 1, 1))).TotalSeconds;
-                    result.Output = String.Format(CultureInfo.InvariantCulture, "{0} {1:f2} {2}\n",
-                                    schema,
-                                    stopwatch.ElapsedMilliseconds / 1000.0,
-                                    unixTimestamp
-                                );
-                    result.Status = 0;
-                }
-                else
-                {
-                    result.Output = String.Format("# Error accessing to {0} (code: {1}): {2}", url, response.StatusCode, response.StatusDescription);
-                    result.Status = 1;
-                }
+                    stopwatch.Stop();
 
+                    if (validStatus.Contains((int)response.StatusCode))
+                    {
+                        var unixTimestamp = (Int32)(DateTime.UtcNow.Subtract(new DateTime(1970, 1, 1))).TotalSeconds;
+                        result.Output = String.Format(CultureInfo.InvariantCulture, "{0} {1:f2} {2}\n",
+                                        schema,
+                                        stopwatch.ElapsedMilliseconds / 1000.0,
+                                        unixTimestamp
+                                    );
+                        result.Status = 0;
+                    }
+                    else
+                    {
+                        result.Output = String.Format("# Error accessing to {0} (code: {1}): {2}", url, response.StatusCode, response.StatusDescription);
+                        result.Status = 1;
+                    }
+                }
             }
             catch (Exception e)
             {
+                var url = getParam("url", null);
+                var uri = new Uri(url);
+                var validStatusRaw = getParam("valid_codes", "200, 302");
+                var validStatus = new List<int>();
+                var schema = getParam("schema", String.Format(CultureInfo.InvariantCulture, "{0}.http.{1}.{2}", System.Environment.MachineName, uri.Host, uri.Port));
+                foreach (var code in validStatusRaw.Split(','))
+                {
+                    if (e.Message.Contains(code))
+                    {
+                        var unixTimestamp = (Int32)(DateTime.UtcNow.Subtract(new DateTime(1970, 1, 1))).TotalSeconds;
+                        result.Output = String.Format(CultureInfo.InvariantCulture, "{0} {1:f2} \n",
+                                        schema,
+                                        unixTimestamp
+                                    );
+                        result.Status = 0;
+                        return result;
+                    }
+                }
                 Log.Error(e, "There was an error accessing to an HTTP check");
                 result.Output = e.Message;
                 result.Status = 2;
             }
-
             return result;
         }
     }
@@ -644,12 +663,8 @@ namespace sensu_client.Command
 
     public class RemoteCommand : Command
     {
-        private const string _defaultArgumentCheckfile = "-checkFile";
-        private bool _customArguments = false;
         public static string PREFIX = "!runremoteps > ";
         public static string PSEXTENSION = "ps1";
-        private const string _defaultArgumentPluginsPath = "-pluginsPath";
-        private const string _defaultArgumentCheckDownLoadURL = "-checkDownLoadURL";
         private string _checkDownloadURL;
         private const string PowershellOptions = "-NoProfile -NonInteractive -NoLogo -ExecutionPolicy Bypass";
         public static string _fileName;
@@ -657,8 +672,8 @@ namespace sensu_client.Command
         public static string _arguments;
         public static string _checkFile;
         public string arguments;
-        public string updatePart;
-
+        
+        /*RemoteCommand that allows the sensu client to execute a powershell script from a specific URL*/
         public RemoteCommand(CommandConfiguration commandConfiguration, string unparsedCommand)
             : base(commandConfiguration, unparsedCommand)
         {
@@ -715,9 +730,7 @@ namespace sensu_client.Command
 
         private static string GetUpdateScriptPath()
         {
-            //var applicationPath = AppDomain.CurrentDomain.BaseDirectory + "\\Solution Items\\Tools\\update.ps1";
             var applicationPath = AppDomain.CurrentDomain.BaseDirectory + "Tools\\update.ps1";
-            
             if (File.Exists(applicationPath))
             {
                 return applicationPath;
@@ -729,10 +742,7 @@ namespace sensu_client.Command
         {
             get
             {
-                //if (!String.IsNullOrEmpty(_arguments)) return _arguments;
-
                 _arguments = ParseArguments();
-
                 return _arguments;
             }
             protected internal set { _arguments = value; }
@@ -744,21 +754,17 @@ namespace sensu_client.Command
             var lastIndexOfUrl = _unparsedCommand.LastIndexOf(PSEXTENSION);
             int checkNameLastIndex = (lastIndexOfUrl - indexOfUrl) + PSEXTENSION.Length;
             _checkDownloadURL = _unparsedCommand.Substring(indexOfUrl, checkNameLastIndex);
-           
-            int lastSlash = _unparsedCommand.LastIndexOf('/');
+            int lastSlashOfRemoteURL = (_checkDownloadURL.LastIndexOf('/') + PREFIX.Length);
 
-            if (lastSlash > -1)
+            if (lastSlashOfRemoteURL > -1)
             {
-                var checkFileLength = (lastIndexOfUrl - lastSlash) + (PSEXTENSION.Length - 1);
-                _checkFile = _unparsedCommand.Substring(lastSlash + 1, checkFileLength);
+                var checkFileLength = (lastIndexOfUrl - lastSlashOfRemoteURL) + (PSEXTENSION.Length - 1);
+                _checkFile = _unparsedCommand.Substring(lastSlashOfRemoteURL + 1, checkFileLength);
                 if (_unparsedCommand.Length > (lastIndexOfUrl + 1) + PSEXTENSION.Length)
                 {
                     arguments = _unparsedCommand.Substring((lastIndexOfUrl + 1) + PSEXTENSION.Length);
                 }
             }
-
-            Log.Debug("Path: " + String.Format("{0} -FILE {1}\\{2} {3}", PowershellOptions, _commandConfiguration.Plugins, _checkFile, arguments));
-
             return String.Format("{0} -FILE {1}\\{2} {3}", PowershellOptions, _commandConfiguration.Plugins, _checkFile, arguments); 
             }
 
